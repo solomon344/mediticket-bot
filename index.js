@@ -25,6 +25,7 @@ async function sendWhatsApp(to, message) {
     }
   );
 
+  console.log('[SEND] WaSender response:', JSON.stringify(res.data));
   if (!res.data?.success) {
     console.error('[SEND] WaSender error:', res.data);
   }
@@ -279,19 +280,28 @@ app.post('/webhook/whatsapp', async (req, res) => {
 
     // Prefer remoteJidAlt (real phone) over remoteJid
     const jid   = remoteJidAlt || remoteJid;
-    const phone = jid.split('@')[0];
+    const phone = jid.replace('@s.whatsapp.net', '').replace('@lid', '').split('@')[0];
 
     const text =
       msgWrapper.messageBody ??
       msgWrapper.message?.conversation ??
-      msgWrapper.message?.extendedTextMessage?.text;
+      msgWrapper.message?.extendedTextMessage?.text ??
+      msgWrapper.message?.extendedTextMessage?.text ??
+      data?.chats?.messages?.[0]?.messageBody;
 
-    if (!phone || !text) return;
+    console.log(`[WEBHOOK] jid=${jid} phone=${phone} text=${JSON.stringify(text)}`);
+    console.log(`[WEBHOOK] msgWrapper keys:`, Object.keys(msgWrapper));
 
-    console.log(`[WEBHOOK] From: ${phone} | Text: ${text}`);
+    if (!phone || !text) {
+      console.log('[WEBHOOK] Skipping — missing phone or text');
+      return;
+    }
 
     const reply = await handleMessage(phone, text);
-    await sendWhatsApp(phone, reply);
+    console.log(`[WEBHOOK] Sending reply to ${jid}:`, reply.slice(0, 80));
+    // WaSender needs full JID with @s.whatsapp.net
+    const toJid = jid.includes('@') ? jid : `${phone}@s.whatsapp.net`;
+    await sendWhatsApp(toJid, reply);
   } catch (err) {
     console.error('[WEBHOOK] Error:', err.message);
   }
