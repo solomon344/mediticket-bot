@@ -266,6 +266,7 @@ app.post('/webhook/whatsapp', async (req, res) => {
         : data?.chats?.messages?.[0]?.message;
 
     if (!msgWrapper) return;
+    if (!msgWrapper.message || Object.keys(msgWrapper.message).length === 0) return; // empty twin event
     if (msgWrapper.key?.fromMe) return;
 
     const remoteJid    = msgWrapper.key?.remoteJid    ?? '';
@@ -283,11 +284,10 @@ app.post('/webhook/whatsapp', async (req, res) => {
     const phone = jid.replace('@s.whatsapp.net', '').replace('@lid', '').split('@')[0];
 
     const text =
-      msgWrapper.messageBody ??
       msgWrapper.message?.conversation ??
       msgWrapper.message?.extendedTextMessage?.text ??
-      msgWrapper.message?.extendedTextMessage?.text ??
-      data?.chats?.messages?.[0]?.messageBody;
+      msgWrapper.message?.imageMessage?.caption ??
+      msgWrapper.messageBody;
 
     console.log(`[WEBHOOK] jid=${jid} phone=${phone} text=${JSON.stringify(text)}`);
     console.log(`[WEBHOOK] msgWrapper keys:`, Object.keys(msgWrapper));
